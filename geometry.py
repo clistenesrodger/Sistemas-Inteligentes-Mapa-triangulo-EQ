@@ -1,17 +1,56 @@
+"""Utilitarios geometricos para triangulos no plano 2D."""
+
 import math
 
 EPS = 1e-9
 
 
 def altura_triangulo(lado):
+    """Calcula a altura de um triangulo equilatero.
+
+    Args:
+        lado (float): comprimento do lado do triangulo.
+
+    Returns:
+        float: altura do triangulo equilatero, dada por sqrt(3)/2 * lado.
+    """
     return (math.sqrt(3) / 2) * lado
 
 
 def orient(p, q, r):
+    """Calcula a orientacao de tres pontos no plano 2D.
+
+    O valor retornado corresponde ao produto vetorial entre os vetores PQ e PR.
+    - Valor positivo: giro anti-horario.
+    - Valor negativo: giro horario.
+    - Valor proximo de zero: pontos aproximadamente colineares.
+
+    Args:
+        p (tuple[float, float]): ponto de referencia.
+        q (tuple[float, float]): segundo ponto.
+        r (tuple[float, float]): terceiro ponto.
+
+    Returns:
+        float: valor do determinante associado a orientacao.
+    """
     return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
 
 
 def ponto_no_segmento(ponto, a, b):
+    """Verifica se um ponto pertence ao segmento AB.
+
+    A checagem e feita em dois passos:
+    1. Colinearidade via orientacao.
+    2. Pertencimento ao retangulo delimitador de AB, com tolerancia EPS.
+
+    Args:
+        ponto (tuple[float, float]): ponto testado.
+        a (tuple[float, float]): extremidade A do segmento.
+        b (tuple[float, float]): extremidade B do segmento.
+
+    Returns:
+        bool: True se o ponto estiver sobre o segmento AB.
+    """
     # Primeiro valida colinearidade, depois confere se o ponto esta no intervalo do segmento.
     if abs(orient(a, b, ponto)) > EPS:
         return False
@@ -23,6 +62,20 @@ def ponto_no_segmento(ponto, a, b):
 
 
 def segmentos_intersectam(a, b, c, d):
+    """Determina se dois segmentos AB e CD se intersectam.
+
+    Considera tanto intersecao propria quanto casos de toque/colinearidade
+    (por exemplo, vertice encostando em aresta).
+
+    Args:
+        a (tuple[float, float]): extremidade A do primeiro segmento.
+        b (tuple[float, float]): extremidade B do primeiro segmento.
+        c (tuple[float, float]): extremidade C do segundo segmento.
+        d (tuple[float, float]): extremidade D do segundo segmento.
+
+    Returns:
+        bool: True se houver intersecao entre os segmentos.
+    """
     o1 = orient(a, b, c)
     o2 = orient(a, b, d)
     o3 = orient(c, d, a)
@@ -45,6 +98,17 @@ def segmentos_intersectam(a, b, c, d):
 
 
 def ponto_no_triangulo(ponto, triangulo):
+    """Verifica se um ponto esta dentro ou na borda de um triangulo.
+
+    Utiliza coordenadas baricentricas com tolerancia numerica EPS.
+
+    Args:
+        ponto (tuple[float, float]): ponto testado.
+        triangulo (list[tuple[float, float]]): vertices do triangulo.
+
+    Returns:
+        bool: True se o ponto estiver na area do triangulo (incluindo borda).
+    """
     x, y = ponto
     (x1, y1), (x2, y2), (x3, y3) = triangulo
 
@@ -64,6 +128,19 @@ def ponto_no_triangulo(ponto, triangulo):
 
 
 def triangulos_colidem(t1, t2):
+    """Verifica se dois triangulos colidem ou se tocam.
+
+    A colisao e detectada quando:
+    - alguma aresta de um triangulo intersecta aresta do outro; ou
+    - algum vertice de um triangulo esta dentro (ou na borda) do outro.
+
+    Args:
+        t1 (list[tuple[float, float]]): vertices do primeiro triangulo.
+        t2 (list[tuple[float, float]]): vertices do segundo triangulo.
+
+    Returns:
+        bool: True se houver sobreposicao ou contato entre os triangulos.
+    """
     edges1 = [(t1[i], t1[(i + 1) % 3]) for i in range(3)]
     edges2 = [(t2[i], t2[(i + 1) % 3]) for i in range(3)]
 
@@ -84,6 +161,18 @@ def triangulos_colidem(t1, t2):
 
 
 def distancia_ponto_segmento(ponto, a, b):
+    """Calcula a distancia minima entre um ponto e um segmento AB.
+
+    Projeta o ponto na reta AB e limita a projecao ao intervalo do segmento.
+
+    Args:
+        ponto (tuple[float, float]): ponto de consulta.
+        a (tuple[float, float]): extremidade A do segmento.
+        b (tuple[float, float]): extremidade B do segmento.
+
+    Returns:
+        float: menor distancia euclidiana entre o ponto e o segmento AB.
+    """
     ax, ay = a
     bx, by = b
     px, py = ponto
@@ -103,6 +192,19 @@ def distancia_ponto_segmento(ponto, a, b):
 
 
 def distancia_segmentos(a, b, c, d):
+    """Calcula a distancia minima entre dois segmentos AB e CD.
+
+    Retorna zero quando os segmentos se intersectam.
+
+    Args:
+        a (tuple[float, float]): extremidade A do primeiro segmento.
+        b (tuple[float, float]): extremidade B do primeiro segmento.
+        c (tuple[float, float]): extremidade C do segundo segmento.
+        d (tuple[float, float]): extremidade D do segundo segmento.
+
+    Returns:
+        float: menor distancia entre os dois segmentos.
+    """
     if segmentos_intersectam(a, b, c, d):
         return 0.0
 
@@ -115,6 +217,17 @@ def distancia_segmentos(a, b, c, d):
 
 
 def distancia_triangulos(t1, t2):
+    """Calcula a distancia minima entre dois triangulos.
+
+    Caso haja colisao ou contato entre os triangulos, retorna 0.0.
+
+    Args:
+        t1 (list[tuple[float, float]]): vertices do primeiro triangulo.
+        t2 (list[tuple[float, float]]): vertices do segundo triangulo.
+
+    Returns:
+        float: menor distancia entre arestas dos dois triangulos.
+    """
     if triangulos_colidem(t1, t2):
         return 0.0
 
