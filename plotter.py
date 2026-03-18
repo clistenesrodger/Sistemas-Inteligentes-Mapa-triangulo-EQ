@@ -3,48 +3,53 @@
 import os
 import matplotlib.pyplot as plt
 
-def plotar_mapa(triangulos, largura, altura, inicio, fim, caminho=None, saida="mapa_triangulos.png"):
+def plotar_mapa(lista_de_triangulos, largura_mapa, altura_mapa, ponto_inicial, ponto_final, caminho_percorrido=None, nome_arquivo_saida="mapa_triangulos.png"):
     """Plota o mapa com triangulos, ponto inicial e ponto final."""
-    fig, ax = plt.subplots(figsize=(12, 10))
+    figura, eixos = plt.subplots(figsize=(12, 10))
 
-    ax.set_xlim(0, largura)
-    ax.set_ylim(0, altura)
+    eixos.set_xlim(0, largura_mapa)
+    eixos.set_ylim(0, altura_mapa)
 
     # Desenha triangulos com cor mais visivel para muitos triangulos
-    for i, tri in enumerate(triangulos):
-        xs = [p[0] for p in tri] + [tri[0][0]]
-        ys = [p[1] for p in tri] + [tri[0][1]]
-        # Usa cor mais clara para muitos triangulos
-        if len(triangulos) > 100:
-            ax.plot(xs, ys, 'b-', linewidth=0.8, alpha=0.7)
+    for indice, triangulo_atual in enumerate(lista_de_triangulos):
+        coordenadas_x = [vertice[0] for vertice in triangulo_atual] + [triangulo_atual[0][0]]
+        coordenadas_y = [vertice[1] for vertice in triangulo_atual] + [triangulo_atual[0][1]]
+        
+        # Usa linha mais fina para muitos triangulos
+        if len(lista_de_triangulos) > 100:
+            eixos.plot(coordenadas_x, coordenadas_y, 'b-', linewidth=0.8, alpha=0.7)
         else:
-            ax.plot(xs, ys, 'b-', linewidth=1.5)
+            eixos.plot(coordenadas_x, coordenadas_y, 'b-', linewidth=1.5)
 
-    # Pontos inicial e final
-    ax.scatter(inicio[0], inicio[1], c='green', s=100, zorder=5)
-    ax.text(inicio[0], inicio[1], "  Start (0,0)", fontsize=12, fontweight='bold')
+    # Ponto INICIAL (verde)
+    eixos.scatter(ponto_inicial[0], ponto_inicial[1], c='green', s=100, zorder=5)
+    eixos.text(ponto_inicial[0], ponto_inicial[1], "  Start (0,0)", fontsize=12, fontweight='bold')
 
-    ax.scatter(fim[0], fim[1], c='red', s=100, zorder=5)
-    ax.text(fim[0], fim[1], "  Goal", fontsize=12, fontweight='bold')
+    # Ponto FINAL (vermelho)
+    eixos.scatter(ponto_final[0], ponto_final[1], c='red', s=100, zorder=5)
+    eixos.text(ponto_final[0], ponto_final[1], "  Goal", fontsize=12, fontweight='bold')
 
-    # Caminho se existir
-    if caminho and len(caminho) >= 2:
-        xs = [p[0] for p in caminho]
-        ys = [p[1] for p in caminho]
-        ax.plot(xs, ys, "r-", linewidth=3, alpha=0.8)
+    # Caminho percorrido (se existir)
+    if caminho_percorrido and len(caminho_percorrido) >= 2:
+        coordenadas_x_caminho = [ponto[0] for ponto in caminho_percorrido]
+        coordenadas_y_caminho = [ponto[1] for ponto in caminho_percorrido]
+        eixos.plot(coordenadas_x_caminho, coordenadas_y_caminho, "r-", linewidth=3, alpha=0.8)
 
     # Informacoes do mapa
-    titulo = f"Mapa com {len(triangulos)} Triangulos (Lado={triangulos[0][1][0]-triangulos[0][0][0]:.1f})"
-    ax.set_title(titulo, fontsize=14, fontweight='bold')
-    ax.set_aspect("equal")
-    ax.grid(True, alpha=0.3)
+    primeiro_triangulo = lista_de_triangulos[0]
+    lado_primeiro_triangulo = primeiro_triangulo[1][0] - primeiro_triangulo[0][0]  # X2 - X1
+    titulo = f"Mapa com {len(lista_de_triangulos)} Triangulos (Lado={lado_primeiro_triangulo:.1f})"
+    
+    eixos.set_title(titulo, fontsize=14, fontweight='bold')
+    eixos.set_aspect("equal")  # Mantém proporção 1:1
+    eixos.grid(True, alpha=0.3)  # Grade transparente
 
-    # Backend handling
-    backend = plt.get_backend().lower()
-    if "agg" in backend:
-        plt.savefig(saida, dpi=200, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Figura salva em: {os.path.abspath(saida)}")
-    else:
+    # Backend handling (salvar vs mostrar)
+    backend_atual = plt.get_backend().lower()
+    if "agg" in backend_atual:  # Modo sem interface gráfica
+        plt.savefig(nome_arquivo_saida, dpi=200, bbox_inches="tight")
+        plt.close(figura)
+        print(f"Figura salva em: {os.path.abspath(nome_arquivo_saida)}")
+    else:  # Modo com interface gráfica
         plt.tight_layout()
         plt.show()
