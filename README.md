@@ -51,9 +51,31 @@ Parâmetros disponíveis:
 - `--lado`: tamanho do lado do triângulo (float)
 - `--xf`: coordenada X do ponto final (float)
 - `--yf`: coordenada Y do ponto final (float)
+- `--plotar-retas`: força o cálculo e plotagem das retas de visibilidade
+- `--max-retas`: limita o número máximo de retas de visibilidade (padrão: `12000`)
 
 Observação importante:
 - Informe **todos os parâmetros** ou **nenhum**. Se você passar só parte deles, o programa retorna erro.
+
+## Parâmetros avançados de performance
+
+Para mapas grandes, o projeto aplica otimizações automaticamente para evitar demora excessiva:
+
+- O cálculo de retas de visibilidade é pulado automaticamente quando há muitos triângulos.
+- Você pode forçar esse cálculo com `--plotar-retas`.
+- Para controlar o custo, use `--max-retas`.
+
+Exemplo forçando retas com limite:
+
+```bash
+python main.py --largura 1000 --altura 1000 --qtd 1000 --lado 20 --xf 900 --yf 900 --plotar-retas --max-retas 3000
+```
+
+Exemplo recomendado para execução mais rápida em mapas grandes:
+
+```bash
+python main.py --largura 1000 --altura 1000 --qtd 1000 --lado 20 --xf 900 --yf 900
+```
 
 ## Exemplo completo
 
@@ -69,3 +91,6 @@ Durante a execução, o programa mostra:
 - quantidade de triângulos gerados
 - validação do ponto final
 - checagem de colisões
+- quantidade de retas visíveis (quando habilitadas)
+
+Ao final, o mapa é exibido em uma janela com os triângulos, pontos inicial/final e, quando solicitado, as retas de visibilidade.

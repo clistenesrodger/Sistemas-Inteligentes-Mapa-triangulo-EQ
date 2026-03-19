@@ -8,13 +8,15 @@ import sys
 import time
 
 from plotter import plotar_mapa
-from triangle_generator import gerar_triangulos_sem_colisao
+from triangle_generator import gerar_triangulos_sem_colisao, gerar_retas_visibilidade
 from geometry import ponto_no_triangulo, triangulos_colidem
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 VENV_DIR = PROJECT_ROOT / ".venv"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 BOOTSTRAP_FLAG = "MAPA_TRIANGULOS_BOOTSTRAPPED"
+LIMITE_TRIANGULOS_RETAS_AUTO = 250
+MAX_RETAS_PADRAO = 12000
 
 
 def _obter_caminho_python_venv():
@@ -63,6 +65,11 @@ def garantir_ambiente_execucao():
 
 
 def validar_parametros(largura_mapa, altura_mapa, quantidade_triangulos, lado_triangulo, coordenada_x_final, coordenada_y_final):
+    """Valida consistencia dos parametros de entrada do mapa.
+
+    Tambem emite aviso quando a relacao area total dos triangulos/area do mapa
+    indica alta chance de configuracao inviavel.
+    """
     if largura_mapa <= 0 or altura_mapa <= 0:
         raise ValueError("Largura e altura devem ser positivos")
     if quantidade_triangulos <= 0:
@@ -89,6 +96,7 @@ def validar_parametros(largura_mapa, altura_mapa, quantidade_triangulos, lado_tr
 
 
 def verificar_ponto_final(ponto_final, lista_triangulos):
+    """Garante que o ponto final esteja em area livre de obstaculos."""
     for indice, triangulo in enumerate(lista_triangulos):
         if ponto_no_triangulo(ponto_final, triangulo):
             print(f"\n--- ERRO: PONTO FINAL DENTRO DO TRIANGULO {indice} ---")
@@ -98,7 +106,84 @@ def verificar_ponto_final(ponto_final, lista_triangulos):
     return True
 
 
+def _bbox_triangulo(triangulo):
+    """Calcula a bounding box de um triangulo no formato (xmin, ymin, xmax, ymax)."""
+    coordenadas_x = [vertice[0] for vertice in triangulo]
+    coordenadas_y = [vertice[1] for vertice in triangulo]
+    return (min(coordenadas_x), min(coordenadas_y), max(coordenadas_x), max(coordenadas_y))
+
+
+def _bbox_intersecta(bbox1, bbox2):
+    """Retorna True quando duas bounding boxes se intersectam."""
+    xmin1, ymin1, xmax1, ymax1 = bbox1
+    xmin2, ymin2, xmax2, ymax2 = bbox2
+    return not (xmax1 < xmin2 or xmax2 < xmin1 or ymax1 < ymin2 or ymax2 < ymin1)
+
+
+def contar_colisoes_otimizado(lista_triangulos, tamanho_celula):
+    """Conta colisoes usando grade espacial para reduzir comparacoes.
+
+    Args:
+        lista_triangulos: lista de triangulos gerados.
+        tamanho_celula: tamanho da celula da grade para indexacao espacial.
+
+    Returns:
+        Quantidade total de pares de triangulos em colisao.
+    """
+    if not lista_triangulos:
+        return 0
+
+    tamanho_celula = max(1.0, float(tamanho_celula))
+    lista_bounding_boxes = [_bbox_triangulo(triangulo) for triangulo in lista_triangulos]
+    grade_espacial = {}
+    pares_processados = set()
+    quantidade_colisoes = 0
+
+    for indice, bbox_atual in enumerate(lista_bounding_boxes):
+        xmin, ymin, xmax, ymax = bbox_atual
+        celula_x_min = int(xmin // tamanho_celula)
+        celula_y_min = int(ymin // tamanho_celula)
+        celula_x_max = int(xmax // tamanho_celula)
+        celula_y_max = int(ymax // tamanho_celula)
+
+        # Compara apenas com triângulos já indexados nas células cobertas pela bbox atual.
+        candidatos = set()
+        for celula_x in range(celula_x_min, celula_x_max + 1):
+            for celula_y in range(celula_y_min, celula_y_max + 1):
+                celula = (celula_x, celula_y)
+                for indice_existente in grade_espacial.get(celula, []):
+                    candidatos.add(indice_existente)
+
+        for indice_existente in candidatos:
+            par = (indice_existente, indice)
+            if par in pares_processados:
+                continue
+            pares_processados.add(par)
+
+            if not _bbox_intersecta(lista_bounding_boxes[indice_existente], bbox_atual):
+                continue
+
+            if triangulos_colidem(lista_triangulos[indice_existente], lista_triangulos[indice]):
+                quantidade_colisoes += 1
+                print(f"Colisao entre triangulo {indice_existente} e {indice}")
+
+        for celula_x in range(celula_x_min, celula_x_max + 1):
+            for celula_y in range(celula_y_min, celula_y_max + 1):
+                celula = (celula_x, celula_y)
+                if celula not in grade_espacial:
+                    grade_espacial[celula] = []
+                grade_espacial[celula].append(indice)
+
+    return quantidade_colisoes
+
+
 def ler_parametros():
+    """Lê parametros por CLI ou entrada interativa.
+
+    Returns:
+        Tupla contendo largura, altura, quantidade de triangulos, lado,
+        coordenadas do ponto final e opcoes de plotagem de retas visiveis.
+    """
     parser = argparse.ArgumentParser(description="Gerador de mapas com obstaculos triangulares")
     parser.add_argument("--largura", type=float, help="Largura do mapa")
     parser.add_argument("--altura", type=float, help="Altura do mapa")
@@ -106,13 +191,24 @@ def ler_parametros():
     parser.add_argument("--lado", type=float, help="Tamanho do lado do triangulo")
     parser.add_argument("--xf", type=float, help="Coordenada X do ponto final")
     parser.add_argument("--yf", type=float, help="Coordenada Y do ponto final")
+    parser.add_argument("--plotar-retas", action="store_true", help="Forca o calculo e desenho das retas de visibilidade")
+    parser.add_argument("--max-retas", type=int, default=MAX_RETAS_PADRAO, help=f"Limite de retas de visibilidade (padrao: {MAX_RETAS_PADRAO})")
     argumentos = parser.parse_args()
 
     lista_parametros = [argumentos.largura, argumentos.altura, argumentos.qtd, argumentos.lado, argumentos.xf, argumentos.yf]
 
     if all(parametro is not None for parametro in lista_parametros):
         validar_parametros(argumentos.largura, argumentos.altura, argumentos.qtd, argumentos.lado, argumentos.xf, argumentos.yf)
-        return (argumentos.largura, argumentos.altura, argumentos.qtd, argumentos.lado, argumentos.xf, argumentos.yf)
+        return (
+            argumentos.largura,
+            argumentos.altura,
+            argumentos.qtd,
+            argumentos.lado,
+            argumentos.xf,
+            argumentos.yf,
+            argumentos.plotar_retas,
+            argumentos.max_retas,
+        )
 
     if any(parametro is not None for parametro in lista_parametros):
         parser.error("Informe todos os parametros ou nenhum deles.")
@@ -126,17 +222,18 @@ def ler_parametros():
     yf = float(input("Coordenada Y do ponto final: "))
     
     validar_parametros(largura, altura, qtd, lado, xf, yf)
-    return largura, altura, qtd, lado, xf, yf
+    return largura, altura, qtd, lado, xf, yf, False, MAX_RETAS_PADRAO
 
 
 def main():
+    """Executa o fluxo principal: entrada, geracao, validacoes e plotagem."""
     print("\n" + "="*50)
     print("GERADOR DE MAPAS COM TRIANGULOS")
     print("="*50 + "\n")
     
     tempo_inicio_total = time.time()
     
-    largura, altura, quantidade, lado, x_final, y_final = ler_parametros()
+    largura, altura, quantidade, lado, x_final, y_final, forcar_plotagem_retas, max_retas = ler_parametros()
     ponto_final = (x_final, y_final)
     
     print(f"\nConfiguracao:")
@@ -164,12 +261,7 @@ def main():
             return
     
     print("\nVerificando colisoes entre triangulos...")
-    quantidade_colisoes = 0
-    for i in range(len(lista_triangulos)):
-        for j in range(i+1, len(lista_triangulos)):
-            if triangulos_colidem(lista_triangulos[i], lista_triangulos[j]):
-                quantidade_colisoes += 1
-                print(f"Colisao entre triangulo {i} e {j}")
+    quantidade_colisoes = contar_colisoes_otimizado(lista_triangulos, lado * 2)
     
     if quantidade_colisoes == 0:
         print(" Nenhuma colisao entre triangulos encontrada")
@@ -178,7 +270,24 @@ def main():
     
     print("\nPlotando mapa...")
     ponto_inicial = (0, 0)
-    plotar_mapa(lista_triangulos, largura, altura, ponto_inicial, ponto_final)
+    retas_visiveis = None
+    if forcar_plotagem_retas or len(lista_triangulos) <= LIMITE_TRIANGULOS_RETAS_AUTO:
+        print("Calculando retas visiveis...")
+        retas_visiveis = gerar_retas_visibilidade(
+            lista_triangulos,
+            ponto_inicial,
+            ponto_final,
+            max_retas=max_retas,
+        )
+        print(f"Retas visiveis encontradas: {len(retas_visiveis)}")
+    else:
+        print(
+            "Retas visiveis nao calculadas automaticamente para evitar demora "
+            f"com {len(lista_triangulos)} triangulos."
+        )
+        print("Use --plotar-retas para forcar (opcionalmente com --max-retas).")
+
+    plotar_mapa(lista_triangulos, largura, altura, ponto_inicial, ponto_final, retas_visiveis=retas_visiveis)
     
     tempo_total = time.time() - tempo_inicio_total
     print(f"\nTempo total: {tempo_total:.2f} segundos")

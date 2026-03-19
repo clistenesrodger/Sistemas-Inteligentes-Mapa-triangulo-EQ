@@ -1,10 +1,99 @@
-"""Geracao de triangulos sem colisao com otimizacao para muitos triangulos."""
+"""Geracao de triangulos e retas de visibilidade para o mapa."""
 
 import random # Usada para gerar posições aleatórias dos triângulos
 import math
 
 # Funções de geometria para verificar colisões e calcular distâncias
-from geometry import altura_triangulo, triangulos_colidem, distancia_segmentos, ponto_no_triangulo
+from geometry import (
+    altura_triangulo,
+    triangulos_colidem,
+    distancia_segmentos,
+    ponto_no_triangulo,
+    ponto_no_segmento,
+    segmentos_intersectam,
+)
+
+TOLERANCIA_IGUALDADE = 1e-9
+
+
+def _pontos_quase_iguais(ponto_a, ponto_b):
+    """Compara dois pontos 2D com tolerancia numerica para erros de ponto flutuante."""
+    return abs(ponto_a[0] - ponto_b[0]) <= TOLERANCIA_IGUALDADE and abs(ponto_a[1] - ponto_b[1]) <= TOLERANCIA_IGUALDADE
+
+
+def _intersecao_apenas_nas_extremidades(ponto_inicio, ponto_fim, aresta_a, aresta_b):
+    """Valida intersecao permitida apenas em vertices de extremidade.
+
+    A funcao retorna True somente quando o segmento candidato toca uma aresta
+    do obstaculo exatamente em um dos seus dois endpoints.
+    """
+    for extremidade in (ponto_inicio, ponto_fim):
+        if (_pontos_quase_iguais(extremidade, aresta_a) or _pontos_quase_iguais(extremidade, aresta_b)) and ponto_no_segmento(extremidade, aresta_a, aresta_b):
+            return True
+    return False
+
+
+def segmento_livre_obstaculos(ponto_inicio, ponto_fim, lista_triangulos):
+    """Verifica se um segmento entre dois pontos esta livre de obstaculos.
+
+    Args:
+        ponto_inicio: tupla (x, y) do ponto inicial do segmento.
+        ponto_fim: tupla (x, y) do ponto final do segmento.
+        lista_triangulos: lista de triangulos-obstaculo.
+
+    Returns:
+        True quando o segmento nao cruza interior de triangulos. Contatos em
+        vertices de extremidade sao aceitos para montar o grafo de visibilidade.
+    """
+    ponto_medio = ((ponto_inicio[0] + ponto_fim[0]) / 2, (ponto_inicio[1] + ponto_fim[1]) / 2)
+
+    for triangulo in lista_triangulos:
+        # Se o ponto medio cai dentro, o segmento cruza interior do obstaculo.
+        if ponto_no_triangulo(ponto_medio, triangulo):
+            return False
+
+        arestas = [(triangulo[i], triangulo[(i + 1) % 3]) for i in range(3)]
+        for aresta_a, aresta_b in arestas:
+            if not segmentos_intersectam(ponto_inicio, ponto_fim, aresta_a, aresta_b):
+                continue
+
+            if not _intersecao_apenas_nas_extremidades(ponto_inicio, ponto_fim, aresta_a, aresta_b):
+                return False
+
+    return True
+
+
+def gerar_retas_visibilidade(lista_triangulos, ponto_inicial, ponto_final, max_retas=None):
+    """Monta as retas do grafo de visibilidade do mapa.
+
+    Considera como nos: ponto inicial, ponto final e todos os vertices dos
+    triangulos. Para cada par de nos, cria uma reta quando o segmento entre eles
+    esta livre de obstaculos.
+
+    Args:
+        lista_triangulos: lista de triangulos-obstaculo no mapa.
+        ponto_inicial: tupla (x, y) de inicio.
+        ponto_final: tupla (x, y) de destino.
+        max_retas: limite superior opcional de retas para reduzir custo.
+
+    Returns:
+        Lista de arestas no formato [((x1, y1), (x2, y2)), ...].
+    """
+    vertices = [ponto_inicial, ponto_final]
+    for triangulo in lista_triangulos:
+        vertices.extend(triangulo)
+
+    retas_visiveis = []
+    for indice_a in range(len(vertices)):
+        for indice_b in range(indice_a + 1, len(vertices)):
+            ponto_a = vertices[indice_a]
+            ponto_b = vertices[indice_b]
+            if segmento_livre_obstaculos(ponto_a, ponto_b, lista_triangulos):
+                retas_visiveis.append((ponto_a, ponto_b))
+                if max_retas is not None and len(retas_visiveis) >= max_retas:
+                    return retas_visiveis
+
+    return retas_visiveis
 
 # Esta classe encapsula todo o estado e lógica necessários para gerar triângulos
 class GeradorTriangulos:
