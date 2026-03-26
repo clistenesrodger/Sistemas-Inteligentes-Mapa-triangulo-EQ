@@ -10,6 +10,7 @@ import time
 from plotter import plotar_mapa
 from triangle_generator import gerar_triangulos_sem_colisao, gerar_retas_visibilidade
 from geometry import ponto_no_triangulo, triangulos_colidem
+from visibility_graph import calcular_caminho_visibilidade
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 VENV_DIR = PROJECT_ROOT / ".venv"
@@ -270,6 +271,8 @@ def main():
     
     print("\nPlotando mapa...")
     ponto_inicial = (0, 0)
+    caminho_encontrado = calcular_caminho_visibilidade(ponto_inicial, ponto_final, lista_triangulos)
+
     retas_visiveis = None
     if forcar_plotagem_retas or len(lista_triangulos) <= LIMITE_TRIANGULOS_RETAS_AUTO:
         print("Calculando retas visiveis...")
@@ -287,7 +290,20 @@ def main():
         )
         print("Use --plotar-retas para forcar (opcionalmente com --max-retas).")
 
-    plotar_mapa(lista_triangulos, largura, altura, ponto_inicial, ponto_final, retas_visiveis=retas_visiveis)
+    if caminho_encontrado:
+        print(f"Caminho em vermelho com {len(caminho_encontrado)} pontos.")
+    else:
+        print("Nenhum caminho valido encontrado para desenhar em vermelho.")
+
+    plotar_mapa(
+        lista_triangulos,
+        largura,
+        altura,
+        ponto_inicial,
+        ponto_final,
+        caminho_percorrido=caminho_encontrado,
+        retas_visiveis=retas_visiveis,
+    )
     
     tempo_total = time.time() - tempo_inicio_total
     print(f"\nTempo total: {tempo_total:.2f} segundos")

@@ -62,13 +62,12 @@ def plotar_mapa(lista_de_triangulos, largura_mapa, altura_mapa, ponto_inicial, p
     eixos.scatter(ponto_final[0], ponto_final[1], c='red', s=100, zorder=5)
     eixos.text(ponto_final[0], ponto_final[1], "  Goal", fontsize=12, fontweight='bold')
 
-    '''
     # Caminho percorrido (se existir)
     if caminho_percorrido and len(caminho_percorrido) >= 2:
         coordenadas_x_caminho = [ponto[0] for ponto in caminho_percorrido]
         coordenadas_y_caminho = [ponto[1] for ponto in caminho_percorrido]
         eixos.plot(coordenadas_x_caminho, coordenadas_y_caminho, "r-", linewidth=3, alpha=0.8)
-    '''
+
     # Informacoes do mapa
     primeiro_triangulo = lista_de_triangulos[0]
     lado_primeiro_triangulo = primeiro_triangulo[1][0] - primeiro_triangulo[0][0]  # X2 - X1
