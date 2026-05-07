@@ -3,6 +3,8 @@
 import random # Usada para gerar posições aleatórias dos triângulos
 import math
 
+# O programa tenta colocar triângulos em posições aleatórias
+
 # Funções de geometria para verificar colisões e calcular distâncias
 from geometry import (
     altura_triangulo,

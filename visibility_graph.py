@@ -4,7 +4,7 @@ from geometry import TOLERANCIA_EPS, segmentos_intersectam
 
 EPS = TOLERANCIA_EPS
 
-
+# Verifica se um ponto está DENTRO de um triângulo (mas não na borda)
 def _ponto_no_triangulo_estrito(ponto, triangulo):
     x, y = ponto
     (x1, y1), (x2, y2), (x3, y3) = triangulo
@@ -19,7 +19,7 @@ def _ponto_no_triangulo_estrito(ponto, triangulo):
 
     return (EPS < a < 1 - EPS) and (EPS < b < 1 - EPS) and (EPS < c < 1 - EPS)
 
-
+# Decide se você pode desenhar uma linha reta do ponto A até o ponto B sem bater em nenhum triângulo
 def _segmento_visivel(a, b, triangulos):
     meio = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
     for tri in triangulos:
@@ -46,21 +46,26 @@ def _segmento_visivel(a, b, triangulos):
 
     return True
 
-
+# Funcão principal que calcula o caminho mais curto com base em menor número de segmentos de reta
 def calcular_caminho_visibilidade(inicio, fim, triangulos):
+    # Verificar se o ponto inicial ou ponto final estão dentro de um triângulo
     for tri in triangulos:
         if _ponto_no_triangulo_estrito(inicio, tri) or _ponto_no_triangulo_estrito(fim, tri):
             return []
 
+    # A lista vertices vai conter: primeiro o Start, depois o Goal, depois os 3 pontos de cada triângulo
     vertices = [inicio, fim]
     for tri in triangulos:
         vertices.extend(tri)
 
+    # Preparar estruturas de controle para BFS
     quantidade_vertices = len(vertices)
     visitado = [False] * quantidade_vertices
-    prev = [-1] * quantidade_vertices
-    vizinhos_cache = {}
+    prev = [-1] * quantidade_vertices # guarda de onde veio cada ponto (para poder voltar depois)
+    vizinhos_cache = {} # guarda a lista de vizinhos de cada ponto para não precisar recalcular
 
+    # Para um ponto (dado pelo seu índice na lista vertices), descobre todos os outros pontos que ele "enxerga" (linha reta sem 
+    # obstáculo). Guarda essa informação no cache para não repetir o cálculo
     def _obter_vizinhos(indice_origem):
         # Calcula vizinhos sob demanda para evitar montar o grafo inteiro.
         if indice_origem in vizinhos_cache:
@@ -77,23 +82,26 @@ def calcular_caminho_visibilidade(inicio, fim, triangulos):
         vizinhos_cache[indice_origem] = vizinhos
         return vizinhos
 
-    fila = deque([0])
-    visitado[0] = True
+    # BFS para encontrar o caminho mais curto (em número de segmentos) do Start (índice 0) até o Goal (índice 1)
+    fila = deque([0]) # Começa do indice 0 que é o Ponto Inicial
+    visitado[0] = True 
 
     while fila:
-        u = fila.popleft()
-        if u == 1:
+        u = fila.popleft() # Pega o primeiro da fila
+        if u == 1: # Se chegou no Ponto Final ele para
             break
-        for v in _obter_vizinhos(u):
+        for v in _obter_vizinhos(u): # Para cada vizinho do ponto atual
             if visitado[v]:
                 continue
-            visitado[v] = True
-            prev[v] = u
-            if v == 1:
+            visitado[v] = True # Marca como visto
+            prev[v] = u # Guarda vim do ponto A para chegar no B
+            if v == 1: # Se o vizinho for o Ponto Final limpa a fila e depois para
                 fila.clear()
                 break
             fila.append(v)
+    # Fim da BFS
 
+    # Reconstroe caminho
     if not visitado[1]:
         return []
 
